@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement Client</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 32px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .card-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .card-header h1 {
+      font-size: 1.5rem;
+      color: #1a73e8;
+      margin-bottom: 4px;
+    }
+
+    .card-header p {
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+      position: relative;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 1rem;
+      color: #333;
+      transition: border-color 0.2s;
+      background: #fafafa;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+      background: white;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    #chequeGroup { display: none; }
+
+    /* Autocomplétion */
+    #suggestions {
+      border: 1.5px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      background: white;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      position: absolute;
+      width: 100%;
+      z-index: 100;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    #suggestions div {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    #suggestions div:hover,
+    #suggestions div.active {
+      background: #e8f0fe;
+      color: #1a73e8;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 13px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover { background: #1558b0; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .alert.success { background: #e6f4ea; color: #2e7d32; border: 1px solid #a8d5b0; }
+    .alert.error   { background: #fdecea; color: #c62828; border: 1px solid #f5c6cb; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="card-header">
+    <h1>💳 Saisie Paiement</h1>
+    <p>Enregistrement d'un règlement client</p>
+  </div>
+
+  <div class="form-group">
+    <label for="date">Date *</label>
+    <input type="date" id="date" required>
+  </div>
+
+  <div class="form-group">
+    <label for="client">Client *</label>
+    <input type="text" id="client" placeholder="Tapez pour rechercher..." autocomplete="off" required>
+    <div id="suggestions"></div>
+  </div>
+
+  <div class="form-group">
+    <label for="montant">Montant (DZD) *</label>
+    <input type="number" id="montant" placeholder="0.00" min="0" step="0.01" required>
+  </div>
+
+  <div class="form-group">
+    <label for="mode">Mode de paiement *</label>
+    <select id="mode" onchange="toggleCheque(this.value)">
+      <option value="">-- Sélectionner --</option>
+      <option value="Espèces">Espèces</option>
+      <option value="Virement">Virement bancaire</option>
+      <option value="Chèque">Chèque</option>
+    </select>
+  </div>
+
+  <div class="form-group" id="chequeGroup">
+    <label for="numeroCheque">N° Chèque *</label>
+    <input type="text" id="numeroCheque" placeholder="Ex: 001234">
+  </div>
+
+  <div class="form-group">
+    <label for="commentaire">Commentaire</label>
+    <textarea id="commentaire" placeholder="Note ou observation..."></textarea>
+  </div>
+
+  <button class="btn" id="btnSoumettre" onclick="soumettre()">✅ Enregistrer le paiement</button>
+  <div class="alert" id="alertMsg"></div>
+</div>
+
+<script>
+  document.getElementById("date").valueAsDate = new Date();
+
+  let tousLesClients = [];
+
+  // Charger la liste clients
+  google.script.run
+    .withSuccessHandler(function(clients) {
+      tousLesClients = clients;
+    })
+    .withFailureHandler(function() {
+      console.error("Erreur chargement clients");
+    })
+    .getClients();
+
+  // Autocomplétion
+  const inputClient = document.getElementById("client");
+  const suggestions = document.getElementById("suggestions");
+
+  inputClient.addEventListener("input", function() {
+    const val = this.value.trim().toLowerCase();
+    suggestions.innerHTML = "";
+    suggestions.style.display = "none";
+
+    if (val.length === 0) return;
+
+    const filtres = tousLesClients.filter(c => c.toLowerCase().includes(val));
+    if (filtres.length === 0) return;
+
+    filtres.forEach(function(nom) {
+      const div = document.createElement("div");
+      // Surligner la partie tapée
+      const regex = new RegExp("(" + val + ")", "gi");
+      div.innerHTML = nom.replace(regex, "<strong>$1</strong>");
+      div.addEventListener("mousedown", function() {
+        inputClient.value = nom;
+        suggestions.style.display = "none";
+      });
+      suggestions.appendChild(div);
+    });
+
+    suggestions.style.display = "block";
+  });
+
+  // Fermer suggestions si clic ailleurs
+  document.addEventListener("click", function(e) {
+    if (e.target !== inputClient) {
+      suggestions.style.display = "none";
+    }
+  });
+
+  function toggleCheque(val) {
+    document.getElementById("chequeGroup").style.display = (val === "Chèque") ? "block" : "none";
+    document.getElementById("numeroCheque").required = (val === "Chèque");
+  }
+
+  function showAlert(type, msg) {
+    const el = document.getElementById("alertMsg");
+    el.className = "alert " + type;
+    el.textContent = msg;
+    el.style.display = "block";
+    setTimeout(() => { el.style.display = "none"; }, 5000);
+  }
+
+  function resetForm() {
+    document.getElementById("date").valueAsDate = new Date();
+    document.getElementById("client").value = "";
+    document.getElementById("montant").value = "";
+    document.getElementById("mode").value = "";
+    document.getElementById("numeroCheque").value = "";
+    document.getElementById("commentaire").value = "";
+    document.getElementById("chequeGroup").style.display = "none";
+  }
+
+  function soumettre() {
+    const date         = document.getElementById("date").value;
+    const client       = document.getElementById("client").value.trim();
+    const montant      = document.getElementById("montant").value;
+    const mode         = document.getElementById("mode").value;
+    const numeroCheque = document.getElementById("numeroCheque").value.trim();
+    const commentaire  = document.getElementById("commentaire").value.trim();
+
+    if (!date || !client || !montant || !mode) {
+      showAlert("error", "⚠️ Veuillez remplir tous les champs obligatoires (*).");
+      return;
+    }
+    if (parseFloat(montant) <= 0) {
+      showAlert("error", "⚠️ Le montant doit être supérieur à 0.");
+      return;
+    }
+    if (mode === "Chèque" && !numeroCheque) {
+      showAlert("error", "⚠️ Veuillez saisir le numéro de chèque.");
+      return;
+    }
+    if (!tousLesClients.includes(client)) {
+      showAlert("error", "⚠️ Client introuvable. Sélectionnez un client dans la liste.");
+      return;
+    }
+
+    const btn = document.getElementById("btnSoumettre");
+    btn.disabled = true;
+    btn.textContent = "⏳ Enregistrement...";
+
+    google.script.run
+      .withSuccessHandler(function() {
+        showAlert("success", "✅ Paiement enregistré avec succès !");
+        resetForm();
+        btn.disabled = false;
+        btn.textContent = "✅ Enregistrer le paiement";
+      })
+      .withFailureHandler(function(err) {
+        showAlert("error", "❌ Erreur : " + err.message);
+        btn.disabled = false;
+        btn.textContent = "✅ Enregistrer le paiement";
+      })
+      .ajouterPaiement({ date, client, montant, mode, numeroCheque, commentaire });
+  }
+</script>
+</body>
+</html>
