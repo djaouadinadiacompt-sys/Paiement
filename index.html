@@ -181,10 +181,9 @@
 
 <script>
   // ✅ Nouvelle URL déploiement Apps Script
-  const API_URL = "https://script.google.com/macros/s/AKfycbwDxxzei-4cQnploQy6XbAELdzbF9GxLH7cU9gggm6mJEuRJGovvAYLwa9ZD3xrxTe5/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbyuS2oBWzlliG620dOYCWFsvnZek1f3OA5qJEvdYaoFjHs0MXr9jCBQxdRGByA8L-rE/exec";
   const PROXY   = "https://api.allorigins.win/get?url=";
 
-  // Appel via proxy allorigins (pour mobile Algérie)
   function callAPI(params) {
     const url = API_URL + "?" + new URLSearchParams(params).toString();
     const proxied = PROXY + encodeURIComponent(url);
