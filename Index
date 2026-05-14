@@ -180,22 +180,34 @@
 </div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbw9mcr1PQNIROuCbxVF8sUBQtU63O59YDqeSCEldvcwX551jCj9vKAFGF6tE-SPTrwy/exec";
+  // ✅ Nouvelle URL déploiement Apps Script
+  const API_URL = "https://script.google.com/macros/s/AKfycbwDxxzei-4cQnploQy6XbAELdzbF9GxLH7cU9gggm6mJEuRJGovvAYLwa9ZD3xrxTe5/exec";
+  const PROXY   = "https://api.allorigins.win/get?url=";
+
+  // Appel via proxy allorigins (pour mobile Algérie)
+  function callAPI(params) {
+    const url = API_URL + "?" + new URLSearchParams(params).toString();
+    const proxied = PROXY + encodeURIComponent(url);
+    return fetch(proxied)
+      .then(r => r.json())
+      .then(wrapper => JSON.parse(wrapper.contents));
+  }
 
   document.getElementById("date").valueAsDate = new Date();
 
   let tousLesClients = [];
 
-  // Charger la liste clients via fetch
-  fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "getClients" })
-  })
-  .then(r => r.json())
-  .then(data => {
-    if (data.success) tousLesClients = data.clients;
-  })
-  .catch(() => console.error("Erreur chargement clients"));
+  // Chargement clients
+  callAPI({ action: "getClients" })
+    .then(data => {
+      if (data.success) {
+        tousLesClients = data.clients;
+        console.log("✅ Clients chargés :", tousLesClients.length);
+      } else {
+        console.error("❌ Erreur serveur :", data.error);
+      }
+    })
+    .catch(err => console.error("❌ Erreur chargement clients :", err));
 
   // Autocomplétion
   const inputClient = document.getElementById("client");
@@ -277,14 +289,12 @@
     btn.disabled = true;
     btn.textContent = "⏳ Enregistrement...";
 
-    fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        action: "ajouterPaiement",
-        data: { date, client, montant, mode, numeroCheque, commentaire }
-      })
+    callAPI({
+      action: "ajouterPaiement",
+      client, montant, date, mode,
+      numeroCheque: numeroCheque || "",
+      commentaire: commentaire || ""
     })
-    .then(r => r.json())
     .then(data => {
       if (data.success) {
         showAlert("success", "✅ Paiement enregistré avec succès !");
