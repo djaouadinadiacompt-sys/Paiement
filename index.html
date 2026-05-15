@@ -15,7 +15,7 @@
       justify-content: center;
       padding: 20px;
     }
-    .card 
+    .card {
       background: white;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.1);
@@ -103,23 +103,26 @@
   const API_URL = "https://script.google.com/macros/s/AKfycbyuS2oBWzlliG620dOYCWFsvnZek1f3OA5qJEvdYaoFjHs0MXr9jCBQxdRGByA8L-rE/exec";
   const PROXY   = "https://corsproxy.io/?";
 
-  // ✅ corsproxy.io retourne directement le JSON, pas de wrapper.contents
-  function callAPI(params) {
+  // ✅ GET pour charger les clients
+  function getClientsAPI() {
+    const url = API_URL + "?action=getClients";
+    return fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
+  }
+
+  // ✅ GET pour enregistrer (Apps Script supporte GET avec paramètres)
+  function ajouterPaiementAPI(params) {
     const url = API_URL + "?" + new URLSearchParams(params).toString();
-    const proxied = PROXY + encodeURIComponent(url);
-   return fetch(proxied).then(r => r.json());
+    return fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
   }
 
   document.getElementById("date").valueAsDate = new Date();
   let tousLesClients = [];
 
-  callAPI({ action: "getClients" })
+  getClientsAPI()
     .then(data => {
       if (data.success) {
         tousLesClients = data.clients;
         console.log("✅ Clients chargés :", tousLesClients.length);
-      } else {
-        console.error("❌ Erreur serveur :", data.error);
       }
     })
     .catch(err => console.error("❌ Erreur chargement clients :", err));
@@ -203,7 +206,7 @@
     btn.disabled = true;
     btn.textContent = "⏳ Enregistrement...";
 
-    callAPI({
+    ajouterPaiementAPI({
       action: "ajouterPaiement",
       client, montant, date, mode,
       numeroCheque: numeroCheque || "",
