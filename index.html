@@ -100,17 +100,10 @@
 </div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbyuS2oBWzlliG620dOYCWFsvnZek1f3OA5qJEvdYaoFjHs0MXr9jCBQxdRGByA8L-rE/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbwNHnFUl18U1BTJGF4nms-BaZC0gDnlt2ds6CoZFTKhG-Y0gSHi1MBFJ9y534wvBTUo/exec";
   const PROXY   = "https://corsproxy.io/?";
 
-  // ✅ GET pour charger les clients
-  function getClientsAPI() {
-    const url = API_URL + "?action=getClients";
-    return fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
-  }
-
-  // ✅ GET pour enregistrer (Apps Script supporte GET avec paramètres)
-  function ajouterPaiementAPI(params) {
+  function callGET(params) {
     const url = API_URL + "?" + new URLSearchParams(params).toString();
     return fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
   }
@@ -118,7 +111,7 @@
   document.getElementById("date").valueAsDate = new Date();
   let tousLesClients = [];
 
-  getClientsAPI()
+  callGET({ action: "getClients" })
     .then(data => {
       if (data.success) {
         tousLesClients = data.clients;
@@ -206,7 +199,7 @@
     btn.disabled = true;
     btn.textContent = "⏳ Enregistrement...";
 
-    ajouterPaiementAPI({
+    callGET({
       action: "ajouterPaiement",
       client, montant, date, mode,
       numeroCheque: numeroCheque || "",
