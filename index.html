@@ -6,7 +6,6 @@
   <title>Paiement Client</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       font-family: 'Segoe UI', sans-serif;
       background: #f0f4f8;
@@ -16,7 +15,6 @@
       justify-content: center;
       padding: 20px;
     }
-
     .card {
       background: white;
       border-radius: 12px;
@@ -25,109 +23,38 @@
       width: 100%;
       max-width: 480px;
     }
-
-    .card-header {
-      text-align: center;
-      margin-bottom: 28px;
-    }
-
-    .card-header h1 {
-      font-size: 1.5rem;
-      color: #1a73e8;
-      margin-bottom: 4px;
-    }
-
-    .card-header p {
-      color: #888;
-      font-size: 0.9rem;
-    }
-
-    .form-group {
-      margin-bottom: 18px;
-      position: relative;
-    }
-
-    label {
-      display: block;
-      font-weight: 600;
-      color: #333;
-      margin-bottom: 6px;
-      font-size: 0.9rem;
-    }
-
+    .card-header { text-align: center; margin-bottom: 28px; }
+    .card-header h1 { font-size: 1.5rem; color: #1a73e8; margin-bottom: 4px; }
+    .card-header p { color: #888; font-size: 0.9rem; }
+    .form-group { margin-bottom: 18px; position: relative; }
+    label { display: block; font-weight: 600; color: #333; margin-bottom: 6px; font-size: 0.9rem; }
     input, select, textarea {
-      width: 100%;
-      padding: 10px 14px;
-      border: 1.5px solid #ddd;
-      border-radius: 8px;
-      font-size: 1rem;
-      color: #333;
-      transition: border-color 0.2s;
-      background: #fafafa;
+      width: 100%; padding: 10px 14px; border: 1.5px solid #ddd;
+      border-radius: 8px; font-size: 1rem; color: #333;
+      transition: border-color 0.2s; background: #fafafa;
     }
-
     input:focus, select:focus, textarea:focus {
-      outline: none;
-      border-color: #1a73e8;
-      background: white;
+      outline: none; border-color: #1a73e8; background: white;
     }
-
     textarea { resize: vertical; min-height: 80px; }
-
     #chequeGroup { display: none; }
-
     #suggestions {
-      border: 1.5px solid #ddd;
-      border-top: none;
-      border-radius: 0 0 8px 8px;
-      background: white;
-      max-height: 200px;
-      overflow-y: auto;
-      display: none;
-      position: absolute;
-      width: 100%;
-      z-index: 100;
+      border: 1.5px solid #ddd; border-top: none;
+      border-radius: 0 0 8px 8px; background: white;
+      max-height: 200px; overflow-y: auto; display: none;
+      position: absolute; width: 100%; z-index: 100;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-
-    #suggestions div {
-      padding: 10px 14px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      color: #333;
-    }
-
-    #suggestions div:hover,
-    #suggestions div.active {
-      background: #e8f0fe;
-      color: #1a73e8;
-    }
-
+    #suggestions div { padding: 10px 14px; cursor: pointer; font-size: 0.95rem; color: #333; }
+    #suggestions div:hover, #suggestions div.active { background: #e8f0fe; color: #1a73e8; }
     .btn {
-      width: 100%;
-      padding: 13px;
-      background: #1a73e8;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background 0.2s;
+      width: 100%; padding: 13px; background: #1a73e8; color: white;
+      border: none; border-radius: 8px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; margin-top: 8px; transition: background 0.2s;
     }
-
     .btn:hover { background: #1558b0; }
     .btn:disabled { background: #aaa; cursor: not-allowed; }
-
-    .alert {
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-top: 16px;
-      font-size: 0.9rem;
-      display: none;
-    }
-
+    .alert { padding: 12px 16px; border-radius: 8px; margin-top: 16px; font-size: 0.9rem; display: none; }
     .alert.success { background: #e6f4ea; color: #2e7d32; border: 1px solid #a8d5b0; }
     .alert.error   { background: #fdecea; color: #c62828; border: 1px solid #f5c6cb; }
   </style>
@@ -138,23 +65,19 @@
     <h1>💳 Saisie Paiement</h1>
     <p>Enregistrement d'un règlement client</p>
   </div>
-
   <div class="form-group">
     <label for="date">Date *</label>
     <input type="date" id="date" required>
   </div>
-
   <div class="form-group">
     <label for="client">Client *</label>
     <input type="text" id="client" placeholder="Tapez pour rechercher..." autocomplete="off" required>
     <div id="suggestions"></div>
   </div>
-
   <div class="form-group">
     <label for="montant">Montant (DZD) *</label>
     <input type="number" id="montant" placeholder="0.00" min="0" step="0.01" required>
   </div>
-
   <div class="form-group">
     <label for="mode">Mode de paiement *</label>
     <select id="mode" onchange="toggleCheque(this.value)">
@@ -164,38 +87,32 @@
       <option value="Chèque">Chèque</option>
     </select>
   </div>
-
   <div class="form-group" id="chequeGroup">
     <label for="numeroCheque">N° Chèque *</label>
     <input type="text" id="numeroCheque" placeholder="Ex: 001234">
   </div>
-
   <div class="form-group">
     <label for="commentaire">Commentaire</label>
     <textarea id="commentaire" placeholder="Note ou observation..."></textarea>
   </div>
-
   <button class="btn" id="btnSoumettre" onclick="soumettre()">✅ Enregistrer le paiement</button>
   <div class="alert" id="alertMsg"></div>
 </div>
 
 <script>
-  // ✅ Nouvelle URL déploiement Apps Script
   const API_URL = "https://script.google.com/macros/s/AKfycbyuS2oBWzlliG620dOYCWFsvnZek1f3OA5qJEvdYaoFjHs0MXr9jCBQxdRGByA8L-rE/exec";
- const PROXY   = "https://corsproxy.io/?";
+  const PROXY   = "https://corsproxy.io/?";
+
+  // ✅ corsproxy.io retourne directement le JSON, pas de wrapper.contents
   function callAPI(params) {
     const url = API_URL + "?" + new URLSearchParams(params).toString();
     const proxied = PROXY + encodeURIComponent(url);
-    return fetch(proxied)
-      .then(r => r.json())
-      .then(wrapper => JSON.parse(wrapper.contents));
+    return fetch(proxied).then(r => r.json());
   }
 
   document.getElementById("date").valueAsDate = new Date();
-
   let tousLesClients = [];
 
-  // Chargement clients
   callAPI({ action: "getClients" })
     .then(data => {
       if (data.success) {
@@ -207,7 +124,6 @@
     })
     .catch(err => console.error("❌ Erreur chargement clients :", err));
 
-  // Autocomplétion
   const inputClient = document.getElementById("client");
   const suggestions = document.getElementById("suggestions");
 
