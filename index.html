@@ -2,8 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-  <title>Paiement Client</title>  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paiement Client</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -98,6 +98,13 @@
     <input type="text" id="numeroFacture" placeholder="Ex: FA20260001" autocomplete="off">
     <div id="factureSuggestions"></div>
   </div>
+  <div class="form-group" id="photoGroup">
+    <label for="photo">Photo du justificatif (optionnel)</label>
+    <input type="file" id="photo" accept="image/*" capture="environment">
+    <div id="photoPreviewWrap" style="display:none; margin-top:10px;">
+      <img id="photoPreview" style="max-width:100%; border-radius:8px; border:1.5px solid #ddd;">
+    </div>
+  </div>
   <div class="form-group">
     <label for="commentaire">Commentaire</label>
     <textarea id="commentaire" placeholder="Note ou observation..."></textarea>
@@ -107,8 +114,43 @@
 </div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbzOJRhs41qnWnXRb93VeIj4MHhJFEclxeS5qreBZF3En6MFskvDyrAd5cQk8yLZh99U/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbwNHnFUl18U1BTJGF4nms-BaZC0gDnlt2ds6CoZFTKhG-Y0gSHi1MBFJ9y534wvBTUo/exec";
   const PROXY   = "https://corsproxy.io/?";
+  const IMGBB_API_KEY = "adc6b237a9ad9924c2b096a52f980bf1";
+
+  function uploadPhotoImgBB(file) {
+    const formData = new FormData();
+    formData.append("image", file);
+    return fetch("https://api.imgbb.com/1/upload?key=" + IMGBB_API_KEY, {
+      method: "POST",
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) return data.data.url;
+      throw new Error("Échec de l'upload de la photo.");
+    });
+  }
+
+  function resetPhoto() {
+    const photoInput = document.getElementById("photo");
+    const previewWrap = document.getElementById("photoPreviewWrap");
+    photoInput.value = "";
+    previewWrap.style.display = "none";
+  }
+
+  document.getElementById("photo").addEventListener("change", function() {
+    const file = this.files[0];
+    const previewWrap = document.getElementById("photoPreviewWrap");
+    const preview = document.getElementById("photoPreview");
+    if (!file) { previewWrap.style.display = "none"; return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      previewWrap.style.display = "block";
+    };
+    reader.readAsDataURL(file);
+  });
 
   // Libellés du champ référence selon le mode de paiement
   const REFERENCE_LABELS = {
@@ -208,12 +250,14 @@
     const input = document.getElementById("numeroCheque");
     const factureGroup = document.getElementById("factureGroup");
     const factureInput = document.getElementById("numeroFacture");
+    const photoGroup = document.getElementById("photoGroup");
     const doitAfficher = MODES_AVEC_REFERENCE.includes(val);
 
     group.style.display = doitAfficher ? "block" : "none";
     input.required = doitAfficher;
     factureGroup.style.display = doitAfficher ? "block" : "none";
     factureInput.required = doitAfficher;
+    photoGroup.style.display = doitAfficher ? "block" : "none";
 
     if (doitAfficher) {
       label.textContent = REFERENCE_LABELS[val];
@@ -221,6 +265,7 @@
     } else {
       input.value = "";
       factureInput.value = "";
+      resetPhoto();
     }
   }
 
@@ -242,6 +287,7 @@
     document.getElementById("commentaire").value = "";
     document.getElementById("referenceGroup").style.display = "none";
     document.getElementById("factureGroup").style.display = "none";
+    resetPhoto();
   }
 
   function soumettre() {
@@ -278,28 +324,49 @@
     btn.disabled = true;
     btn.textContent = "⏳ Enregistrement...";
 
-    callGET({
-      action: "ajouterPaiement",
-      client, montant, date, mode,
-      numeroCheque: numeroCheque || "",
-      numeroFacture: numeroFacture || "",
-      commentaire: commentaire || ""
-    })
-    .then(data => {
-      if (data.success) {
-        showAlert("success", "✅ Paiement enregistré avec succès !");
-        resetForm();
-      } else {
-        showAlert("error", "❌ Erreur : " + data.error);
-      }
-      btn.disabled = false;
-      btn.textContent = "✅ Enregistrer le paiement";
-    })
-    .catch(err => {
-      showAlert("error", "❌ Erreur réseau : " + err.message);
-      btn.disabled = false;
-      btn.textContent = "✅ Enregistrer le paiement";
-    });
+    const photoFile = document.getElementById("photo").files[0];
+
+    const envoyerPaiement = (photoUrl) => {
+      callGET({
+        action: "ajouterPaiement",
+        client, montant, date, mode,
+        numeroCheque: numeroCheque || "",
+        numeroFacture: numeroFacture || "",
+        commentaire: commentaire || "",
+        photoUrl: photoUrl || ""
+      })
+      .then(data => {
+        if (data.success) {
+          showAlert("success", "✅ Paiement enregistré avec succès !");
+          resetForm();
+        } else {
+          showAlert("error", "❌ Erreur : " + data.error);
+        }
+        btn.disabled = false;
+        btn.textContent = "✅ Enregistrer le paiement";
+      })
+      .catch(err => {
+        showAlert("error", "❌ Erreur réseau : " + err.message);
+        btn.disabled = false;
+        btn.textContent = "✅ Enregistrer le paiement";
+      });
+    };
+
+    if (photoFile) {
+      btn.textContent = "⏳ Envoi de la photo...";
+      uploadPhotoImgBB(photoFile)
+        .then(url => {
+          btn.textContent = "⏳ Enregistrement...";
+          envoyerPaiement(url);
+        })
+        .catch(err => {
+          showAlert("error", "❌ " + err.message);
+          btn.disabled = false;
+          btn.textContent = "✅ Enregistrer le paiement";
+        });
+    } else {
+      envoyerPaiement("");
+    }
   }
 </script>
 </body>
