@@ -37,16 +37,17 @@
       outline: none; border-color: #1a73e8; background: white;
     }
     textarea { resize: vertical; min-height: 80px; }
-    #chequeGroup { display: none; }
-    #suggestions {
+    #referenceGroup { display: none; }
+    #suggestions, #factureSuggestions {
       border: 1.5px solid #ddd; border-top: none;
       border-radius: 0 0 8px 8px; background: white;
       max-height: 200px; overflow-y: auto; display: none;
       position: absolute; width: 100%; z-index: 100;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-    #suggestions div { padding: 10px 14px; cursor: pointer; font-size: 0.95rem; color: #333; }
-    #suggestions div:hover, #suggestions div.active { background: #e8f0fe; color: #1a73e8; }
+    #suggestions div, #factureSuggestions div { padding: 10px 14px; cursor: pointer; font-size: 0.95rem; color: #333; }
+    #suggestions div:hover, #suggestions div.active,
+    #factureSuggestions div:hover, #factureSuggestions div.active { background: #e8f0fe; color: #1a73e8; }
     .btn {
       width: 100%; padding: 13px; background: #1a73e8; color: white;
       border: none; border-radius: 8px; font-size: 1rem; font-weight: 600;
@@ -80,16 +81,22 @@
   </div>
   <div class="form-group">
     <label for="mode">Mode de paiement *</label>
-    <select id="mode" onchange="toggleCheque(this.value)">
+    <select id="mode" onchange="toggleReference(this.value)">
       <option value="">-- Sélectionner --</option>
       <option value="Espèces">Espèces</option>
       <option value="Virement">Virement bancaire</option>
+      <option value="Versement">Versement</option>
       <option value="Chèque">Chèque</option>
     </select>
   </div>
-  <div class="form-group" id="chequeGroup">
-    <label for="numeroCheque">N° Chèque *</label>
+  <div class="form-group" id="referenceGroup">
+    <label for="numeroCheque" id="referenceLabel">N° Chèque *</label>
     <input type="text" id="numeroCheque" placeholder="Ex: 001234">
+  </div>
+  <div class="form-group" id="factureGroup">
+    <label for="numeroFacture">N° Facture *</label>
+    <input type="text" id="numeroFacture" placeholder="Ex: FA20260001" autocomplete="off">
+    <div id="factureSuggestions"></div>
   </div>
   <div class="form-group">
     <label for="commentaire">Commentaire</label>
@@ -103,6 +110,20 @@
   const API_URL = "https://script.google.com/macros/s/AKfycbwNHnFUl18U1BTJGF4nms-BaZC0gDnlt2ds6CoZFTKhG-Y0gSHi1MBFJ9y534wvBTUo/exec";
   const PROXY   = "https://corsproxy.io/?";
 
+  // Libellés du champ référence selon le mode de paiement
+  const REFERENCE_LABELS = {
+    "Chèque":   "N° Chèque *",
+    "Virement": "N° Virement *",
+    "Versement":"N° Versement *"
+  };
+  const REFERENCE_PLACEHOLDERS = {
+    "Chèque":   "Ex: 001234",
+    "Virement": "Ex: VIR-2026-001",
+    "Versement":"Ex: VER-2026-001"
+  };
+  // Modes pour lesquels le champ référence est obligatoire
+  const MODES_AVEC_REFERENCE = ["Chèque", "Virement", "Versement"];
+
   function callGET(params) {
     const url = API_URL + "?" + new URLSearchParams(params).toString();
     return fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
@@ -110,6 +131,7 @@
 
   document.getElementById("date").valueAsDate = new Date();
   let tousLesClients = [];
+  let toutesLesFactures = [];
 
   callGET({ action: "getClients" })
     .then(data => {
@@ -119,6 +141,15 @@
       }
     })
     .catch(err => console.error("❌ Erreur chargement clients :", err));
+
+  callGET({ action: "getFactures" })
+    .then(data => {
+      if (data.success) {
+        toutesLesFactures = data.factures;
+        console.log("✅ Factures chargées :", toutesLesFactures.length);
+      }
+    })
+    .catch(err => console.error("❌ Erreur chargement factures :", err));
 
   const inputClient = document.getElementById("client");
   const suggestions = document.getElementById("suggestions");
@@ -145,11 +176,52 @@
 
   document.addEventListener("click", function(e) {
     if (e.target !== inputClient) suggestions.style.display = "none";
+    if (e.target !== inputFacture) factureSuggestions.style.display = "none";
   });
 
-  function toggleCheque(val) {
-    document.getElementById("chequeGroup").style.display = (val === "Chèque") ? "block" : "none";
-    document.getElementById("numeroCheque").required = (val === "Chèque");
+  const inputFacture = document.getElementById("numeroFacture");
+  const factureSuggestions = document.getElementById("factureSuggestions");
+
+  inputFacture.addEventListener("input", function() {
+    const val = this.value.trim().toLowerCase();
+    factureSuggestions.innerHTML = "";
+    factureSuggestions.style.display = "none";
+    if (val.length === 0) return;
+    const filtres = toutesLesFactures.filter(f => f.toLowerCase().includes(val));
+    if (filtres.length === 0) return;
+    filtres.forEach(function(num) {
+      const div = document.createElement("div");
+      const regex = new RegExp("(" + val + ")", "gi");
+      div.innerHTML = num.replace(regex, "<strong>$1</strong>");
+      div.addEventListener("mousedown", function() {
+        inputFacture.value = num;
+        factureSuggestions.style.display = "none";
+      });
+      factureSuggestions.appendChild(div);
+    });
+    factureSuggestions.style.display = "block";
+  });
+
+  function toggleReference(val) {
+    const group = document.getElementById("referenceGroup");
+    const label = document.getElementById("referenceLabel");
+    const input = document.getElementById("numeroCheque");
+    const factureGroup = document.getElementById("factureGroup");
+    const factureInput = document.getElementById("numeroFacture");
+    const doitAfficher = MODES_AVEC_REFERENCE.includes(val);
+
+    group.style.display = doitAfficher ? "block" : "none";
+    input.required = doitAfficher;
+    factureGroup.style.display = doitAfficher ? "block" : "none";
+    factureInput.required = doitAfficher;
+
+    if (doitAfficher) {
+      label.textContent = REFERENCE_LABELS[val];
+      input.placeholder = REFERENCE_PLACEHOLDERS[val];
+    } else {
+      input.value = "";
+      factureInput.value = "";
+    }
   }
 
   function showAlert(type, msg) {
@@ -166,8 +238,10 @@
     document.getElementById("montant").value = "";
     document.getElementById("mode").value = "";
     document.getElementById("numeroCheque").value = "";
+    document.getElementById("numeroFacture").value = "";
     document.getElementById("commentaire").value = "";
-    document.getElementById("chequeGroup").style.display = "none";
+    document.getElementById("referenceGroup").style.display = "none";
+    document.getElementById("factureGroup").style.display = "none";
   }
 
   function soumettre() {
@@ -176,6 +250,7 @@
     const montant      = document.getElementById("montant").value;
     const mode         = document.getElementById("mode").value;
     const numeroCheque = document.getElementById("numeroCheque").value.trim();
+    const numeroFacture= document.getElementById("numeroFacture").value.trim();
     const commentaire  = document.getElementById("commentaire").value.trim();
 
     if (!date || !client || !montant || !mode) {
@@ -186,8 +261,12 @@
       showAlert("error", "⚠️ Le montant doit être supérieur à 0.");
       return;
     }
-    if (mode === "Chèque" && !numeroCheque) {
-      showAlert("error", "⚠️ Veuillez saisir le numéro de chèque.");
+    if (MODES_AVEC_REFERENCE.includes(mode) && !numeroCheque) {
+      showAlert("error", "⚠️ Veuillez saisir le " + REFERENCE_LABELS[mode].replace(" *", "") + ".");
+      return;
+    }
+    if (MODES_AVEC_REFERENCE.includes(mode) && !numeroFacture) {
+      showAlert("error", "⚠️ Veuillez saisir le N° Facture.");
       return;
     }
     if (!tousLesClients.includes(client)) {
@@ -203,6 +282,7 @@
       action: "ajouterPaiement",
       client, montant, date, mode,
       numeroCheque: numeroCheque || "",
+      numeroFacture: numeroFacture || "",
       commentaire: commentaire || ""
     })
     .then(data => {
