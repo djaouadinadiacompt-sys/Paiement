@@ -166,37 +166,83 @@
   // Modes pour lesquels le champ référence est obligatoire
   const MODES_AVEC_REFERENCE = ["Chèque", "Virement", "Versement"];
 
-  function callGET(params) {
+  const PROXIES = [
+    "https://corsproxy.io/?",
+    "https://api.allorigins.win/raw?url="
+  ];
+
+  function callGET(params, tentative) {
+    tentative = tentative || 0;
     const url = API_URL + "?" + new URLSearchParams(params).toString();
-    return fetch(PROXY + encodeURIComponent(url)).then(r => r.json());
+    const proxy = PROXIES[tentative % PROXIES.length];
+    return fetch(proxy + encodeURIComponent(url))
+      .then(r => {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .catch(err => {
+        if (tentative < 3) {
+          // Nouvelle tentative (jusqu'à 4 essais au total, en alternant les proxys)
+          return new Promise(resolve => setTimeout(resolve, 600))
+            .then(() => callGET(params, tentative + 1));
+        }
+        throw err;
+      });
   }
 
   document.getElementById("date").valueAsDate = new Date();
   let tousLesClients = [];
   let toutesLesFactures = [];
 
-  callGET({ action: "getClients" })
-    .then(data => {
-      if (data.success) {
-        tousLesClients = data.clients;
-        console.log("✅ Clients chargés :", tousLesClients.length);
-      }
-    })
-    .catch(err => console.error("❌ Erreur chargement clients :", err));
+  function chargerClients() {
+    callGET({ action: "getClients" })
+      .then(data => {
+        if (data.success) {
+          tousLesClients = data.clients;
+          console.log("✅ Clients chargés :", tousLesClients.length);
+          try { localStorage.setItem("cache_clients", JSON.stringify(tousLesClients)); } catch(e) {}
+        } else {
+          throw new Error("Réponse invalide du serveur");
+        }
+      })
+      .catch(err => {
+        console.error("❌ Erreur chargement clients :", err);
+        let cache = [];
+        try { cache = JSON.parse(localStorage.getItem("cache_clients") || "[]"); } catch(e) {}
+        if (cache.length > 0) {
+          tousLesClients = cache;
+          showAlert("error", "⚠️ Connexion instable : liste de clients (dernière version enregistrée) utilisée.");
+        } else {
+          showAlert("error", "⚠️ Impossible de charger la liste des clients (connexion). Tape sur le champ Client pour réessayer.");
+        }
+      });
+  }
 
-  callGET({ action: "getFactures" })
-    .then(data => {
-      if (data.success) {
-        toutesLesFactures = data.factures;
-        console.log("✅ Factures chargées :", toutesLesFactures.length);
-      }
-    })
-    .catch(err => console.error("❌ Erreur chargement factures :", err));
+  function chargerFactures() {
+    callGET({ action: "getFactures" })
+      .then(data => {
+        if (data.success) {
+          toutesLesFactures = data.factures;
+          console.log("✅ Factures chargées :", toutesLesFactures.length);
+          try { localStorage.setItem("cache_factures", JSON.stringify(toutesLesFactures)); } catch(e) {}
+        }
+      })
+      .catch(err => {
+        console.error("❌ Erreur chargement factures :", err);
+        let cache = [];
+        try { cache = JSON.parse(localStorage.getItem("cache_factures") || "[]"); } catch(e) {}
+        if (cache.length > 0) toutesLesFactures = cache;
+      });
+  }
+
+  chargerClients();
+  chargerFactures();
 
   const inputClient = document.getElementById("client");
   const suggestions = document.getElementById("suggestions");
 
   inputClient.addEventListener("input", function() {
+    if (tousLesClients.length === 0) chargerClients();
     const val = this.value.trim().toLowerCase();
     suggestions.innerHTML = "";
     suggestions.style.display = "none";
