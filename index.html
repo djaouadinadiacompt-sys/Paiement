@@ -129,7 +129,7 @@
 </div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbwA4uAQU639qjrhC9liyxEq2H1mMr_4bAlS9JUBBep8I4dw1qPbXGWBzeSqMCE4JkxO/exec";
+  const API_URL = "https://script.google.com/macros/s/AKfycbw5fIayzBpNHl2cBzlsWb-_jfVGa8qHoagacI_y0NOVKt117Qk69qrJEpHmJp8NkUWs/exec";
   const PROXY   = "https://corsproxy.io/?";
   const IMGBB_API_KEY = "adc6b237a9ad9924c2b096a52f980bf1";
 
@@ -186,13 +186,25 @@
     "https://api.allorigins.win/raw?url="
   ];
 
+  const WORKER_URL = "https://wandering-hill-145c.djaouadi-nadiacompt.workers.dev/";
+
   function callGET(params, tentative) {
     tentative = tentative || 0;
-    const url = API_URL + "?" + new URLSearchParams(params).toString();
-    const proxy = PROXIES[tentative % PROXIES.length];
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
-    return fetch(proxy + encodeURIComponent(url), { signal: controller.signal })
+
+    let fetchUrl;
+    if (tentative === 0) {
+      // 1ère tentative : ton propre relais Cloudflare (rapide et fiable)
+      fetchUrl = WORKER_URL + "?" + new URLSearchParams(params).toString();
+    } else {
+      // Tentatives suivantes : proxys publics de secours
+      const url = API_URL + "?" + new URLSearchParams(params).toString();
+      const proxy = PROXIES[(tentative - 1) % PROXIES.length];
+      fetchUrl = proxy + encodeURIComponent(url);
+    }
+
+    return fetch(fetchUrl, { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId);
         if (!r.ok) throw new Error("HTTP " + r.status);
@@ -201,7 +213,7 @@
       .catch(err => {
         clearTimeout(timeoutId);
         if (tentative < 3) {
-          // Nouvelle tentative (jusqu'à 4 essais au total, en alternant les proxys)
+          // Nouvelle tentative (jusqu'à 4 essais au total)
           return new Promise(resolve => setTimeout(resolve, 600))
             .then(() => callGET(params, tentative + 1));
         }
