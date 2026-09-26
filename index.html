@@ -384,45 +384,37 @@
 
     const btn = document.getElementById("btnSoumettre");
     btn.disabled = true;
-    btn.textContent = "🔎 Vérification...";
-
-    callGET({ action: "verifierDoublon", client, montant, date })
-      .then(data => {
-        if (data.success && data.doublon) {
-          const confirme = confirm(
-            "⚠️ Un paiement identique existe déjà pour :\n\n" +
-            client + " — " + montant + " DZD — " + date +
-            "\n\nEst-ce un DEUXIÈME paiement réel (cliquez OK) ou une ERREUR de saisie (cliquez Annuler) ?"
-          );
-          if (!confirme) {
-            btn.disabled = false;
-            btn.textContent = "✅ Enregistrer le paiement";
-            showAlert("error", "❌ Enregistrement annulé (doublon évité).");
-            return;
-          }
-        }
-        continuerEnregistrement();
-      })
-      .catch(() => {
-        // Si la vérification échoue (connexion), on continue quand même sans bloquer le travail
-        continuerEnregistrement();
-      });
-
-    function continuerEnregistrement() {
-    btn.textContent = "⏳ Enregistrement...";
 
     const photoFile = document.getElementById("photo").files[0];
 
-    const envoyerPaiement = (photoUrl) => {
+    const envoyerPaiement = (photoUrl, forcerDoublon) => {
+      btn.textContent = "⏳ Enregistrement...";
       callGET({
         action: "ajouterPaiement",
         client, montant, date, mode,
         numeroCheque: numeroCheque || "",
         numeroFacture: numeroFacture || "",
         commentaire: commentaire || "",
-        photoUrl: photoUrl || ""
+        photoUrl: photoUrl || "",
+        forcerDoublon: forcerDoublon ? "true" : "false"
       })
       .then(data => {
+        if (data.success && data.doublon && !forcerDoublon) {
+          // Doublon détecté et pas encore forcé : on demande confirmation puis on renvoie une seule fois
+          const confirme = confirm(
+            "⚠️ Un paiement identique existe déjà pour :\n\n" +
+            client + " — " + montant + " DZD — " + date +
+            "\n\nEst-ce un DEUXIÈME paiement réel (cliquez OK) ou une ERREUR de saisie (cliquez Annuler) ?"
+          );
+          if (confirme) {
+            envoyerPaiement(photoUrl, true);
+          } else {
+            btn.disabled = false;
+            btn.textContent = "✅ Enregistrer le paiement";
+            showAlert("error", "❌ Enregistrement annulé (doublon évité).");
+          }
+          return;
+        }
         if (data.success) {
           showAlert("success", "✅ Paiement enregistré avec succès !");
           resetForm();
@@ -442,18 +434,14 @@
     if (photoFile) {
       btn.textContent = "⏳ Envoi de la photo...";
       uploadPhotoImgBB(photoFile)
-        .then(url => {
-          btn.textContent = "⏳ Enregistrement...";
-          envoyerPaiement(url);
-        })
+        .then(url => envoyerPaiement(url, false))
         .catch(err => {
           showAlert("error", "❌ " + err.message);
           btn.disabled = false;
           btn.textContent = "✅ Enregistrer le paiement";
         });
     } else {
-      envoyerPaiement("");
-    }
+      envoyerPaiement("", false);
     }
   }
 </script>
