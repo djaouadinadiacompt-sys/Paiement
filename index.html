@@ -384,6 +384,31 @@
 
     const btn = document.getElementById("btnSoumettre");
     btn.disabled = true;
+    btn.textContent = "🔎 Vérification...";
+
+    callGET({ action: "verifierDoublon", client, montant, date })
+      .then(data => {
+        if (data.success && data.doublon) {
+          const confirme = confirm(
+            "⚠️ Un paiement identique existe déjà pour :\n\n" +
+            client + " — " + montant + " DZD — " + date +
+            "\n\nEst-ce un DEUXIÈME paiement réel (cliquez OK) ou une ERREUR de saisie (cliquez Annuler) ?"
+          );
+          if (!confirme) {
+            btn.disabled = false;
+            btn.textContent = "✅ Enregistrer le paiement";
+            showAlert("error", "❌ Enregistrement annulé (doublon évité).");
+            return;
+          }
+        }
+        continuerEnregistrement();
+      })
+      .catch(() => {
+        // Si la vérification échoue (connexion), on continue quand même sans bloquer le travail
+        continuerEnregistrement();
+      });
+
+    function continuerEnregistrement() {
     btn.textContent = "⏳ Enregistrement...";
 
     const photoFile = document.getElementById("photo").files[0];
@@ -428,6 +453,7 @@
         });
     } else {
       envoyerPaiement("");
+    }
     }
   }
 </script>
